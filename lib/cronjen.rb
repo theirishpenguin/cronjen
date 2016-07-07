@@ -1,0 +1,1 @@
+require 'cronjen/manager'

@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'bundler/setup'
+
+ENV["CRONJEN_ENV"] ||= "production"
+
+lib = File.expand_path('../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+
+require 'cronjen'
+
+command_key = ARGV[0]
+inventory_key = ARGV[1]
+
+begin
+  manager = Cronjen::Manager.new(command_key, inventory_key)
+  manager.execute_command
+rescue Cronjen::UsageError, Cronjen::ConfigError, Cronjen::CronSyntaxError => ex
+  puts "Error: #{ex.message}"
+  exit 1
+end

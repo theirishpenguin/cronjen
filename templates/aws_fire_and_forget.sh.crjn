@@ -1,0 +1,69 @@
+urlname=$host
+region="__AWS_REGION_VALUE__"
+
+### extract the ip addres from dns
+extracted_ip=$(dig +short $urlname)
+
+isPrivate ()
+{
+  ip=$1
+  # returns 1 if private, otherwise public
+  if [[ $ip == 10.0.* ]]; then return 0; fi
+  if [[ $ip == 192.168.* ]]; then return 0; fi
+  if [[ $ip == 172.16.* ]]; then return 0; fi
+  if [[ $ip == 172.17.* ]]; then return 0; fi
+  if [[ $ip == 172.18.* ]]; then return 0; fi
+  if [[ $ip == 172.19.* ]]; then return 0; fi
+  if [[ $ip == 172.20.* ]]; then return 0; fi
+  if [[ $ip == 172.21.* ]]; then return 0; fi
+  if [[ $ip == 172.22.* ]]; then return 0; fi
+  if [[ $ip == 172.23.* ]]; then return 0; fi
+  if [[ $ip == 172.24.* ]]; then return 0; fi
+  if [[ $ip == 172.25.* ]]; then return 0; fi
+  if [[ $ip == 172.26.* ]]; then return 0; fi
+  if [[ $ip == 172.27.* ]]; then return 0; fi
+  if [[ $ip == 172.28.* ]]; then return 0; fi
+  if [[ $ip == 172.29.* ]]; then return 0; fi
+  if [[ $ip == 172.30.* ]]; then return 0; fi
+  if [[ $ip == 172.31.* ]]; then return 0; fi
+
+  return 2 # public
+}
+
+#if is a private ip use the query for private ip research or use for the public
+if isPrivate $extracted_ip
+then
+  query='Reservations[*].Instances[*].[InstanceId,NetworkInterfaces[*].[PrivateIpAddresses[*].PrivateIpAddress]]'
+else
+  query='Reservations[*].Instances[*].[InstanceId,NetworkInterfaces[*].PrivateIpAddresses[*].Association.PublicIp]'
+fi
+
+#### recover the instance id using the ip private or public ######
+id=$(aws ec2  describe-instances --region $region --output text --query $query | grep -B 1 -w "$extracted_ip" | head -1)
+
+#add a control if the id dosn't start with the correct prefix
+if [[ $id != i-* ]]
+then
+  echo error empty id
+  exit 1
+fi
+echo idpub is $id
+
+##### if the machine is of switch on and wait since is ready #########
+state=$(aws ec2 describe-instance-status --region $region --output text --instance-ids $id  --query 'InstanceStatuses[*].InstanceState.Name')
+echo "state: $state"
+if [ ""$state != "running" ]
+then
+  echo "switching on the instance with id: " $id
+  aws ec2 start-instances --region $region --instance-ids $id
+  up=0
+  while [ $up -lt 1 ]; do up=`/usr/bin/nc -z $urlname 22 | wc -l`;sleep 30;done
+fi
+
+####### run the script ###########
+
+__SSH_COMMAND_VALUE__
+
+################
+echo "switching off the instance with id: " $id
+aws ec2 stop-instances --region $region --instance-ids $id

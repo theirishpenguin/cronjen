@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <actions/>
+  <description>Run a task on a server at a scheduled time</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <jenkins.model.BuildDiscarderProperty>
+      <strategy class="hudson.tasks.LogRotator">
+        <daysToKeep>-1</daysToKeep>
+        <numToKeep>14</numToKeep>
+        <artifactDaysToKeep>-1</artifactDaysToKeep>
+        <artifactNumToKeep>-1</artifactNumToKeep>
+      </strategy>
+    </jenkins.model.BuildDiscarderProperty>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>host</name>
+          <description>Host on which to run the job
+</description>
+          <defaultValue>machine-3.example.com</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>loginuser</name>
+          <description>User on host that will run the job</description>
+          <defaultValue>jervis</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>command</name>
+          <description>Command to run</description>
+          <defaultValue>cd /path/to/some/dir &amp;&amp; unbuffer ./bin/example_command.rb  2&gt;&amp;1 | tee /path/to/some/dir/logs/example_command.log</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>cronjen_plus_command</name>
+          <description>Cronjen Plus command</description>
+          <defaultValue>CRONJEN_PLUS:{"type":"aws_fire_and_forget","region":"us-west-2", "cmd": "cd /path/to/some/dir &amp;&amp; unbuffer ./bin/example_command.rb  2&gt;&amp;1 | tee /path/to/some/dir/logs/example_command.log"}</defaultValue>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+    <hudson.plugins.throttleconcurrents.ThrottleJobProperty plugin="throttle-concurrents@9.8.7">
+      <maxConcurrentPerNode>0</maxConcurrentPerNode>
+      <maxConcurrentTotal>0</maxConcurrentTotal>
+      <throttleEnabled>false</throttleEnabled>
+      <throttleOption>project</throttleOption>
+    </hudson.plugins.throttleconcurrents.ThrottleJobProperty>
+  </properties>
+  <scm class="hudson.scm.NullSCM"/>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <hudson.triggers.TimerTrigger>
+      <spec>TZ=UTC
+0 5 31 2 *</spec>
+    </hudson.triggers.TimerTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>urlname=$host
+region="us-west-2"
+
+### extract the ip addres from dns
+ip=$(dig +short $urlname)
+
+#if is a private ip use the query for private ip research or use for the public
+if [[ $ip == 10.0.* ]]
+then
+  query='Reservations[*].Instances[*].[InstanceId,NetworkInterfaces[*].[PrivateIpAddresses[*].PrivateIpAddress]]'
+else
+  query='Reservations[*].Instances[*].[InstanceId,NetworkInterfaces[*].PrivateIpAddresses[*].Association.PublicIp]'
+fi
+
+#### recover the instance id using the ip private or public ######
+id=$(aws ec2  describe-instances --region $region --output text --query $query | grep -B 1 -w "$ip" | head -1)
+
+#add a control if the id dosn't start with the correct prefix
+if [[ $id != i-* ]]
+then
+  echo error empty id
+  exit 1
+fi
+echo idpub is $id
+
+##### if the machine is of switch on and wait since is ready #########
+state=$(aws ec2 describe-instance-status --region $region --output text --instance-ids $id  --query 'InstanceStatuses[*].InstanceState.Name')
+echo "state: $state"
+if [ ""$state != "running" ]
+then
+  echo "switching on the instance with id: " $id
+  aws ec2 start-instances --region $region --instance-ids $id
+  up=0
+  while [ $up -lt 1 ]; do up=`/usr/bin/nc -z $urlname 22 | wc -l`;sleep 30;done
+fi
+
+####### run the script ###########
+
+ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ./spec/files/dot_ssh/private_ssh_key -p 1735 $loginuser@$host "$command"
+
+################
+echo "switching off the instance with id: " $id
+aws ec2 stop-instances --region $region --instance-ids $id
+
+</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.tasks.Mailer plugin="mailer@6.5">
+      <recipients>jenny@example.com</recipients>
+      <dontNotifyEveryUnstableBuild>false</dontNotifyEveryUnstableBuild>
+      <sendToIndividuals>false</sendToIndividuals>
+    </hudson.tasks.Mailer>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.7.3"/>
+  </buildWrappers>
+</project>

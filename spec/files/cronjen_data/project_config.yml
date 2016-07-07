@@ -1,0 +1,7 @@
+jenkins_url: mrjenkins.example.com
+user_defined_job_prefix: Spec - Cronjen
+jenkins_api_client_log_filepath: "/tmp/ruby-jenkins-api-client-test.log"
+ssh_command: ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ./spec/files/dot_ssh/private_ssh_key
+    -p 1735 $loginuser@$host "$command"
+email_recipients: jenny@example.com
+log_num_to_keep: 14

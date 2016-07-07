@@ -1,0 +1,13 @@
+---
+example-machine-1-simple-command:
+  target_host_url: machine-1.example.com
+  cron_filename: machine-1-simple-command-test
+
+example-machine-2-instance-starter:
+  target_host_url: machine-2.example.com
+  cron_filename: machine-2-instance-starter-test
+
+example-machine-3-fire-and-forget:
+  target_host_url: machine-3.example.com
+  cron_filename: machine-3-fire-and-forget-test
+

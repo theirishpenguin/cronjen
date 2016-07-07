@@ -1,0 +1,1 @@
+0 5 31 2 * | UTC | jervis | Fire and Forget Test| CRONJEN_PLUS:{"type":"aws_fire_and_forget","region":"us-west-2", "cmd": "cd /path/to/some/dir && unbuffer ./bin/example_command.rb  2>&1 | tee /path/to/some/dir/logs/example_command.log"}
